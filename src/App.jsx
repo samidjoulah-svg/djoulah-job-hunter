@@ -7,6 +7,10 @@ const MOCK_JOBS = [
     org: "WHO",
     location: "Geneva, Switzerland",
     type: "Full-time",
+    duration: "Full-time · 2 ans",
+    remuneration: "$90–120k + avantages ONU",
+    matchScore: 92,
+    myTimeScore: 90,
     tags: ["OMS", "NGS", "Épidémie Ebola"],
     deadline: "2026-07-15",
     url: "https://careers.who.int",
@@ -19,6 +23,10 @@ const MOCK_JOBS = [
     org: "UNDP",
     location: "Nairobi, Kenya",
     type: "Contract",
+    duration: "Consulting · 6–12 mois",
+    remuneration: "$800–1 000/jour",
+    matchScore: 88,
+    myTimeScore: 82,
     tags: ["UNP", "PCR", "Africa CDC"],
     deadline: "2026-07-30",
     url: "https://jobs.undp.org",
@@ -31,6 +39,10 @@ const MOCK_JOBS = [
     org: "BioTech Europe GmbH",
     location: "Berlin, Germany",
     type: "Full-time",
+    duration: "CDI Full-time",
+    remuneration: "€85–110k/an",
+    matchScore: 83,
+    myTimeScore: 75,
     tags: ["Biotech Europe", "CE-IVD", "NGS"],
     deadline: "2026-08-10",
     url: "https://biotecheurope.com/careers",
@@ -43,6 +55,10 @@ const MOCK_JOBS = [
     org: "Africa CDC",
     location: "Kinshasa, DRC",
     type: "Contract",
+    duration: "Contrat · 6 mois",
+    remuneration: "Package UA attractif",
+    matchScore: 95,
+    myTimeScore: 89,
     tags: ["Épidémie Ebola", "Africa CDC", "PCR"],
     deadline: "2026-07-20",
     url: "https://africacdc.org/careers",
@@ -55,6 +71,10 @@ const MOCK_JOBS = [
     org: "Université Nouveaux Horizons",
     location: "Lubumbashi, DRC",
     type: "Full-time",
+    duration: "Missions ponctuelles",
+    remuneration: "Per diem + logement",
+    matchScore: 91,
+    myTimeScore: 87,
     tags: ["Enseignement universitaire", "NGS", "Enseignement international"],
     deadline: "2026-09-01",
     url: "https://unh-lubumbashi.org",
@@ -67,6 +87,10 @@ const MOCK_JOBS = [
     org: "Institut Pasteur",
     location: "Paris, France",
     type: "Full-time",
+    duration: "CDI Full-time",
+    remuneration: "€90–130k/an",
+    matchScore: 88,
+    myTimeScore: 83,
     tags: ["NGS", "Biotech Europe", "OMS"],
     deadline: "2026-08-25",
     url: "https://pasteur.fr/careers",
@@ -83,6 +107,8 @@ Publications: 20+ articles peer-reviewed, dont Cell Mol Immunol 2021 (épitopes 
 Certifications: Gestion essais cliniques Johns Hopkins 2024, ISO 13485 QARAD Belgique 2012.
 Projet phare: GENOMSURV-DRC — réseau national de surveillance génomique des pathogènes émergents en RDC.
 Langues: Français (natif), Anglais (courant), Arabe (conversationnel).`;
+
+const scoreColor = (v) => v >= 75 ? "#4ade80" : v >= 50 ? "#fbbf24" : "#f87171";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("search");
@@ -337,12 +363,38 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: "0 0 4px", fontSize: 16, color: "#e8eaf0", fontWeight: 600 }}>{job.title}</h3>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                        <h3 style={{ margin: 0, fontSize: 15, color: "#e8eaf0", fontWeight: 600, flex: 1, paddingRight: 12 }}>{job.title}</h3>
+                        {job.matchScore != null && (
+                          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                            {[["Match", job.matchScore], ["Intérêt", job.myTimeScore], ["Moy.", Math.round((job.matchScore + job.myTimeScore) / 2)]].map(([l, v]) => (
+                              <div key={l} style={{ textAlign: "center" }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: scoreColor(v) }}>{v}%</div>
+                                <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{l}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <p style={{ margin: "0 0 8px", color: "#7eb8f7", fontSize: 13 }}>
                         {job.org} · {job.location} · <span style={{ color: "#64748b" }}>{job.type}</span>
                       </p>
-                      <p style={{ margin: "0 0 12px", color: "#8892b0", fontSize: 13, lineHeight: 1.5 }}>{job.description}</p>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                      <p style={{ margin: "0 0 10px", color: "#8892b0", fontSize: 13, lineHeight: 1.5 }}>{job.description}</p>
+                      {(job.remuneration || job.duration) && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                          {job.duration && (
+                            <span style={{ fontSize: 11, background: "rgba(251,191,36,0.1)", border: "1px solid #b45309", borderRadius: 8, padding: "3px 8px", color: "#fcd34d" }}>
+                              ⏱ {job.duration}
+                            </span>
+                          )}
+                          {job.remuneration && (
+                            <span style={{ fontSize: 11, background: "rgba(74,222,128,0.1)", border: "1px solid #2a6a4a", borderRadius: 8, padding: "3px 8px", color: "#86efac" }}>
+                              💰 {job.remuneration}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                         {job.tags.map((tag) => (
                           <span key={tag} style={{ padding: "3px 10px", borderRadius: 12, background: "rgba(126,184,247,0.1)", color: "#7eb8f7", fontSize: 11 }}>
                             {tag}
