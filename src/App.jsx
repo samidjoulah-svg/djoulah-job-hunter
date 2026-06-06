@@ -124,6 +124,7 @@ export default function App() {
   const [isPitching, setIsPitching] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isScoring, setIsScoring] = useState(false);
   const [searchError, setSearchError] = useState("");
 
   const TAG_QUERIES = {
@@ -137,24 +138,64 @@ export default function App() {
     "Enseignement international": "genomics bioinformatics senior scientist",
   };
 
+  const scoreJobs = async (jobs) => {
+    try {
+      const list = jobs.map((j, i) => `${i + 1}. ${j.title} @ ${j.org} (${j.location}) — ${j.description.slice(0, 120)}`).join("\n");
+      const resp = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: `Candidate: ${DR_SAMI_PROFILE}\n\nScore 0-100:\n- matchScore: how well the candidate profile fits the job requirements\n- myTimeScore: how attractive/strategic this job is for the candidate (geography, impact, remuneration)\n\nJobs:\n${list}\n\nJSON only, no markdown: {"scores":[{"matchScore":0,"myTimeScore":0},...]}`,
+          }],
+        }),
+      });
+      const data = await resp.json();
+      const text = (data.content || []).map(c => c.text || "").join("");
+      const m = text.match(/\{[\s\S]*\}/);
+      if (!m) return jobs;
+      const { scores } = JSON.parse(m[0]);
+      return jobs.map((j, i) => ({
+        ...j,
+        matchScore: scores[i]?.matchScore ?? null,
+        myTimeScore: scores[i]?.myTimeScore ?? null,
+      }));
+    } catch {
+      return jobs;
+    }
+  };
+
   const toggleTag = async (tag) => {
     const nowSelected = !selectedTags.includes(tag);
     setSelectedTags(nowSelected ? [tag] : []);
-    if (!nowSelected) { setSearchResults(null); setSearchError(""); return; }
+    if (!nowSelected) { setSearchResults(null); setSearchError(""); setIsScoring(false); return; }
     setIsSearching(true);
+    setIsScoring(false);
     setSearchError("");
     setSearchResults(null);
     try {
       const query = TAG_QUERIES[tag] || tag;
       const resp = await fetch(`/api/jobs?query=${encodeURIComponent(query)}`);
       const data = await resp.json();
-      setSearchResults(data.jobs?.length > 0 ? data.jobs : []);
-      if (!data.jobs?.length) setSearchError("Aucune offre trouvée — offres de démonstration affichées.");
+      const jobs = data.jobs?.length > 0 ? data.jobs : [];
+      setSearchResults(jobs);
+      setIsSearching(false);
+      if (!jobs.length) {
+        setSearchError("Aucune offre trouvée — offres de démonstration affichées.");
+      } else {
+        setIsScoring(true);
+        const scored = await scoreJobs(jobs);
+        setSearchResults(scored);
+        setIsScoring(false);
+      }
     } catch {
       setSearchResults([]);
       setSearchError("Erreur API — offres de démonstration affichées.");
+      setIsSearching(false);
     }
-    setIsSearching(false);
   };
 
   const displayJobs = (searchResults !== null && searchResults.length > 0)
@@ -337,6 +378,9 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
 
             {isSearching && (
               <div style={{ color: "#7eb8f7", fontSize: 13, marginBottom: 16 }}>⏳ Recherche Indeed en cours...</div>
+            )}
+            {isScoring && !isSearching && (
+              <div style={{ color: "#4ade80", fontSize: 12, marginBottom: 12 }}>⚡ Score IA en cours...</div>
             )}
             {searchError && (
               <div style={{ marginBottom: 12, padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid #4a3a1a", borderRadius: 8, fontSize: 12, color: "#fbbf24" }}>⚠️ {searchError}</div>
