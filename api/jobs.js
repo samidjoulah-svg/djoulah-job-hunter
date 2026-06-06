@@ -10,30 +10,30 @@ export default async function handler(req, res) {
   const rapidApiKey = process.env.JSEARCH_API_KEY;
   if (!rapidApiKey) return res.status(500).json({ error: "JSEARCH_API_KEY not configured" });
 
-  const [jsearchResult, linkedinResult] = await Promise.allSettled([
+  const [jsearchResult, remoteokResult] = await Promise.allSettled([
     fetchJSearch(query, location, rapidApiKey),
-    fetchLinkedIn(query, location, rapidApiKey),
+    fetchRemoteOK(query),
   ]);
 
   const jsearchJobs  = jsearchResult.status  === "fulfilled" ? jsearchResult.value  : [];
-  const linkedinJobs = linkedinResult.status === "fulfilled" ? linkedinResult.value : [];
+  const remoteokJobs = remoteokResult.status === "fulfilled" ? remoteokResult.value : [];
 
-  const jobs = dedup([...jsearchJobs, ...linkedinJobs]).slice(0, 10);
+  const jobs = dedup([...jsearchJobs, ...remoteokJobs]).slice(0, 10);
 
   if (!jobs.length) {
     return res.status(502).json({
       error: "No results from any source",
-      sources: buildSourcesMeta(jsearchResult, linkedinResult, jsearchJobs, linkedinJobs),
+      sources: buildMeta(jsearchResult, remoteokResult, jsearchJobs, remoteokJobs),
     });
   }
 
   return res.status(200).json({
     jobs,
-    sources: buildSourcesMeta(jsearchResult, linkedinResult, jsearchJobs, linkedinJobs),
+    sources: buildMeta(jsearchResult, remoteokResult, jsearchJobs, remoteokJobs),
   });
 }
 
-// ── JSearch ──────────────────────────────────────────────────────────────────
+// ── JSearch ───────────────────────────────────────────────────────────────────
 
 async function fetchJSearch(query, location, apiKey) {
   const fullQuery = location ? `${query} ${location}` : query;
@@ -66,54 +66,84 @@ async function fetchJSearch(query, location, apiKey) {
       : "Non précisée",
     url: job.job_apply_link || job.job_google_link || "",
     description: (job.job_description || "").slice(0, 350).replace(/\s+/g, " ").trim() + "…",
-    remuneration: formatSalary(job),
+    remuneration: formatSalaryJSearch(job),
     matchScore: null,
     myTimeScore: null,
   }));
 }
 
-// ── LinkedIn Jobs Search (jaypat87) ──────────────────────────────────────────
+// ── RemoteOK (remoteok.com/api — free, no key, real tag filtering) ───────────
 
-async function fetchLinkedIn(query, location, apiKey) {
-  const url = new URL("https://linkedin-jobs-search.p.rapidapi.com/");
-  url.searchParams.set("keywords", query);
-  url.searchParams.set("location", location || "");
-  url.searchParams.set("dateSincePosted", "past month");
-  url.searchParams.set("limit", "6");
+// Map query keywords to RemoteOK tags
+const QUERY_TAG_MAP = [
+  [["health", "who", "oms", "epidemiology", "infectious", "disease"], "healthcare"],
+  [["biotech", "diagnostics", "molecular", "biology", "ngs", "genomics", "bioinformatics", "laboratory"], "biotech"],
+  [["science", "research", "professor", "university"], "science"],
+  [["medical", "clinical"], "medical"],
+];
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      "x-rapidapi-key": apiKey,
-      "x-rapidapi-host": "linkedin-jobs-search.p.rapidapi.com",
-    },
+function queryToTag(query) {
+  const lower = query.toLowerCase();
+  for (const [keywords, tag] of QUERY_TAG_MAP) {
+    if (keywords.some((kw) => lower.includes(kw))) return tag;
+  }
+  return "science";
+}
+
+async function fetchRemoteOK(query) {
+  const tag = queryToTag(query);
+  const res = await fetch(`https://remoteok.com/api?tag=${tag}`, {
+    headers: { "User-Agent": "DjoulahJobHunter/1.0" },
   });
   const data = await res.json();
 
-  if (data.message && data.message.includes("not subscribed")) {
-    throw new Error("LinkedIn: not subscribed");
-  }
-  if (!Array.isArray(data)) throw new Error("LinkedIn: unexpected response");
+  const jobs = data.filter((j) => typeof j === "object" && j.position);
+  if (!jobs.length) throw new Error("RemoteOK: empty response");
 
-  return data.slice(0, 6).map((job, i) => ({
-    id: `linkedin-${i}`,
-    source: "LinkedIn",
-    title: job.title || "Poste sans titre",
-    org: job.company || "Organisation",
-    organization: job.company || "Organisation",
-    location: job.location || "—",
-    type: "—",
-    duration: job.jobType || "—",
-    tags: [],
-    deadline: "Non précisée",
-    url: job.jobUrl || "",
-    description: (job.description || "").slice(0, 350).replace(/\s+/g, " ").trim() + "…",
-    remuneration: job.salary || "",
-    matchScore: null,
-    myTimeScore: null,
-  }));
+  // Title keyword filter for extra relevance
+  const STOP = new Set(["with", "from", "that", "this", "have", "will", "senior"]);
+  const keywords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOP.has(w));
+
+  const scored = jobs.map((job) => {
+    const title = (job.position || "").toLowerCase();
+    const hits = keywords.filter((kw) => title.includes(kw)).length;
+    return { job, hits };
+  });
+
+  // Sort by keyword hits descending, keep top 6
+  const top = scored
+    .sort((a, b) => b.hits - a.hits)
+    .slice(0, 6)
+    .map(({ job }, i) => {
+      const salMin = job.salary_min ? Math.round(job.salary_min / 1000) : null;
+      const salMax = job.salary_max ? Math.round(job.salary_max / 1000) : null;
+      const remuneration = salMin ? `${salMin}k–${salMax}k USD/an` : "";
+      return {
+        id: `remoteok-${i}`,
+        source: "RemoteOK",
+        title: job.position || "Poste sans titre",
+        org: job.company || "Organisation",
+        organization: job.company || "Organisation",
+        location: job.location || "Remote",
+        type: "Remote",
+        duration: "Remote",
+        tags: job.tags || [],
+        deadline: "Non précisée",
+        url: job.url || job.apply_url || "",
+        description: (job.description || "").replace(/<[^>]+>/g, "").slice(0, 350).trim() + "…",
+        remuneration,
+        matchScore: null,
+        myTimeScore: null,
+      };
+    });
+
+  return top;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function dedup(jobs) {
   const seen = new Set();
@@ -125,10 +155,10 @@ function dedup(jobs) {
   });
 }
 
-function buildSourcesMeta(jsearchResult, linkedinResult, jsearchJobs, linkedinJobs) {
+function buildMeta(jsearchResult, remoteokResult, jsearchJobs, remoteokJobs) {
   return {
     jsearch:  jsearchResult.status  === "fulfilled" ? jsearchJobs.length  : "error",
-    linkedin: linkedinResult.status === "fulfilled" ? linkedinJobs.length : "not subscribed",
+    remoteok: remoteokResult.status === "fulfilled" ? remoteokJobs.length : "error",
   };
 }
 
@@ -137,7 +167,7 @@ function formatType(type) {
   return map[type] || type || "—";
 }
 
-function formatSalary(job) {
+function formatSalaryJSearch(job) {
   if (!job.job_min_salary) return "";
   const min = Math.round(job.job_min_salary / 1000);
   const max = Math.round(job.job_max_salary / 1000);

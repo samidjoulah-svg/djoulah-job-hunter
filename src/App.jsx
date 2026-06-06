@@ -129,14 +129,14 @@ export default function App() {
   const [sourcesInfo, setSourcesInfo] = useState(null);
 
   const TAG_QUERIES = {
-    "OMS": "global health senior consultant laboratory",
-    "UNP": "international organization health program senior consultant",
-    "Africa CDC": "epidemiology laboratory public health senior",
-    "Biotech Europe": "biotech diagnostics molecular senior director",
-    "Épidémie Ebola": "infectious disease outbreak response laboratory",
-    "NGS": "NGS genomics senior scientist laboratory diagnostics",
-    "Enseignement universitaire": "molecular biology professor university",
-    "Enseignement international": "genomics bioinformatics senior scientist",
+    "OMS": "global health laboratory",
+    "UNP": "international health consultant",
+    "Africa CDC": "epidemiology public health",
+    "Biotech Europe": "biotech diagnostics",
+    "Épidémie Ebola": "infectious disease laboratory",
+    "NGS": "NGS genomics",
+    "Enseignement universitaire": "molecular biology professor",
+    "Enseignement international": "genomics bioinformatics",
   };
 
   const scoreJobs = async (jobs) => {
@@ -400,8 +400,8 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
                     <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: typeof sourcesInfo.jsearch === "number" ? "rgba(126,184,247,0.12)" : "rgba(255,107,107,0.1)", border: `1px solid ${typeof sourcesInfo.jsearch === "number" ? "#2a4a7f" : "#7f2a2a"}`, color: typeof sourcesInfo.jsearch === "number" ? "#7eb8f7" : "#ff8888" }}>
                       JSearch {typeof sourcesInfo.jsearch === "number" ? `✓ ${sourcesInfo.jsearch}` : "✗"}
                     </span>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: typeof sourcesInfo.linkedin === "number" ? "rgba(10,102,194,0.15)" : "rgba(255,107,107,0.08)", border: `1px solid ${typeof sourcesInfo.linkedin === "number" ? "#0a66c2" : "#7f2a2a"}`, color: typeof sourcesInfo.linkedin === "number" ? "#60a5fa" : "#ff8888" }}>
-                      LinkedIn {typeof sourcesInfo.linkedin === "number" ? `✓ ${sourcesInfo.linkedin}` : "✗ inactif"}
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: typeof sourcesInfo.remoteok === "number" ? "rgba(52,211,153,0.12)" : "rgba(255,107,107,0.08)", border: `1px solid ${typeof sourcesInfo.remoteok === "number" ? "#065f46" : "#7f2a2a"}`, color: typeof sourcesInfo.remoteok === "number" ? "#34d399" : "#ff8888" }}>
+                      RemoteOK {typeof sourcesInfo.remoteok === "number" ? `✓ ${sourcesInfo.remoteok}` : "✗ inactif"}
                     </span>
                   </div>
                 )}
@@ -438,8 +438,8 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
                       <p style={{ margin: "0 0 8px", color: "#7eb8f7", fontSize: 13 }}>
                         {job.org} · {job.location} · <span style={{ color: "#64748b" }}>{job.type}</span>
                         {job.source && (
-                          <span style={{ marginLeft: 8, fontSize: 10, padding: "1px 6px", borderRadius: 8, background: job.source === "LinkedIn" ? "rgba(10,102,194,0.2)" : "rgba(126,184,247,0.1)", color: job.source === "LinkedIn" ? "#60a5fa" : "#8bafd4", border: `1px solid ${job.source === "LinkedIn" ? "#0a66c266" : "#2a4a7f"}` }}>
-                            {job.source === "LinkedIn" ? "🔵 LinkedIn" : "🟠 JSearch"}
+                          <span style={{ marginLeft: 8, fontSize: 10, padding: "1px 6px", borderRadius: 8, background: job.source === "RemoteOK" ? "rgba(52,211,153,0.15)" : "rgba(126,184,247,0.1)", color: job.source === "RemoteOK" ? "#34d399" : "#8bafd4", border: `1px solid ${job.source === "RemoteOK" ? "#065f4666" : "#2a4a7f"}` }}>
+                            {job.source === "RemoteOK" ? "🟢 RemoteOK" : "🟠 JSearch"}
                           </span>
                         )}
                       </p>
