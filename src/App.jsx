@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-
 const MOCK_JOBS = [
   {
     id: 1,
@@ -98,19 +96,46 @@ export default function App() {
   const [pitchJob, setPitchJob] = useState(null);
   const [generatedPitch, setGeneratedPitch] = useState("");
   const [isPitching, setIsPitching] = useState(false);
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
-  const filteredJobs =
-    selectedTags.length === 0
-      ? MOCK_JOBS
-      : MOCK_JOBS.filter((job) =>
-          selectedTags.some((tag) => job.tags.includes(tag))
-        );
-
-  const toggleTag = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+  const TAG_QUERIES = {
+    "OMS": "global health senior consultant laboratory",
+    "UNP": "international organization health program senior consultant",
+    "Africa CDC": "epidemiology laboratory public health senior",
+    "Biotech Europe": "biotech diagnostics molecular senior director",
+    "Épidémie Ebola": "infectious disease outbreak response laboratory",
+    "NGS": "NGS genomics senior scientist laboratory diagnostics",
+    "Enseignement universitaire": "molecular biology professor university",
+    "Enseignement international": "genomics bioinformatics senior scientist",
   };
+
+  const toggleTag = async (tag) => {
+    const nowSelected = !selectedTags.includes(tag);
+    setSelectedTags(nowSelected ? [tag] : []);
+    if (!nowSelected) { setSearchResults(null); setSearchError(""); return; }
+    setIsSearching(true);
+    setSearchError("");
+    setSearchResults(null);
+    try {
+      const query = TAG_QUERIES[tag] || tag;
+      const resp = await fetch(`/api/jobs?query=${encodeURIComponent(query)}`);
+      const data = await resp.json();
+      setSearchResults(data.jobs?.length > 0 ? data.jobs : []);
+      if (!data.jobs?.length) setSearchError("Aucune offre trouvée — offres de démonstration affichées.");
+    } catch {
+      setSearchResults([]);
+      setSearchError("Erreur API — offres de démonstration affichées.");
+    }
+    setIsSearching(false);
+  };
+
+  const displayJobs = (searchResults !== null && searchResults.length > 0)
+    ? searchResults
+    : (selectedTags.length === 0
+        ? MOCK_JOBS
+        : MOCK_JOBS.filter((job) => selectedTags.some((tag) => job.tags.includes(tag))));
 
   const toggleTrack = (job) => {
     setTrackedJobs((prev) =>
@@ -127,15 +152,11 @@ export default function App() {
       setError("Veuillez coller le texte de l'offre d'emploi.");
       return;
     }
-    if (!ANTHROPIC_API_KEY) {
-      setError("Clé API Anthropic manquante. Vérifiez VITE_ANTHROPIC_API_KEY.");
-      return;
-    }
     setIsGenerating(true);
     setError("");
     setGeneratedLetter("");
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -175,12 +196,11 @@ Rédige une lettre de motivation professionnelle et percutante en français (ou 
   };
 
   const generatePitch = async (job) => {
-    if (!ANTHROPIC_API_KEY) return;
     setIsPitching(true);
     setPitchJob(job);
     setGeneratedPitch("");
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,7 +300,7 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
                 ))}
                 {selectedTags.length > 0 && (
                   <button
-                    onClick={() => setSelectedTags([])}
+                    onClick={() => { setSelectedTags([]); setSearchResults(null); setSearchError(""); }}
                     style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid #ff6b6b", background: "transparent", color: "#ff6b6b", cursor: "pointer", fontSize: 12 }}
                   >
                     ✕ Effacer
@@ -289,10 +309,22 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
               </div>
             </div>
 
-            <p style={{ color: "#8892b0", fontSize: 13, marginBottom: 16 }}>{filteredJobs.length} offre(s) trouvée(s)</p>
+            {isSearching && (
+              <div style={{ color: "#7eb8f7", fontSize: 13, marginBottom: 16 }}>⏳ Recherche Indeed en cours...</div>
+            )}
+            {searchError && (
+              <div style={{ marginBottom: 12, padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid #4a3a1a", borderRadius: 8, fontSize: 12, color: "#fbbf24" }}>⚠️ {searchError}</div>
+            )}
+            {!isSearching && (
+              <p style={{ color: "#8892b0", fontSize: 13, marginBottom: 16 }}>
+                {searchResults !== null && searchResults.length > 0
+                  ? `${searchResults.length} offre(s) Indeed trouvée(s)`
+                  : `${displayJobs.length} offre(s)`}
+              </p>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {filteredJobs.map((job) => (
+              {!isSearching && displayJobs.map((job) => (
                 <div
                   key={job.id}
                   style={{

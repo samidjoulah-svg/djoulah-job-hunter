@@ -139,7 +139,7 @@ export default function Home() {
   const [spontCopied, setSpontCopied] = useState(false);
 
   const callAPI = async (prompt) => {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -174,23 +174,16 @@ export default function Home() {
       return;
     }
     try {
-      setLoadingMsg("Recherche web...");
-      const r1 = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 800,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          messages: [{ role: "user", content: "Search: " + theme.query + ". List job titles, organizations, locations, URLs." }]
-        })
-      });
+      setLoadingMsg("Recherche Indeed...");
+      const r1 = await fetch(`/api/jobs?query=${encodeURIComponent(theme.query)}`);
       const d1 = await r1.json();
-      const summary = (d1.content || []).map(i => i.text || "").filter(Boolean).join("\n").slice(0, 1200);
-      setLoadingMsg("Analyse...");
-      const result = await callAPI("Search results:\n" + (summary || "none") + "\n\nGenerate 5 senior jobs for this profile: " + CV_SHORT + "\n\nJSON only no markdown: {\"jobs\":[{\"title\":\"\",\"organization\":\"\",\"location\":\"\",\"type\":\"\",\"duration\":\"\",\"remuneration\":\"\",\"description\":\"\",\"matchScore\":0,\"myTimeScore\":0,\"myTimeReason\":\"\",\"matchReason\":\"\",\"distanceFlag\":\"\",\"url\":\"\",\"deadline\":\"\"}]}");
-      if (result && result.jobs && result.jobs.length > 0) setJobs(result.jobs);
-      else { setJobs(TEST_JOBS); setApiError("Recherche sans resultat - offres de demonstration affichees."); }
-    } catch (e) { setJobs(TEST_JOBS); setApiError("Erreur reseau - offres de demonstration affichees."); }
+      if (d1.jobs && d1.jobs.length > 0) {
+        setJobs(d1.jobs);
+      } else {
+        setJobs(TEST_JOBS);
+        setApiError("Aucun résultat Indeed — offres de démonstration affichées.");
+      }
+    } catch (e) { setJobs(TEST_JOBS); setApiError("Erreur réseau — offres de démonstration affichées."); }
     setLoadingJobs(false);
   };
 
