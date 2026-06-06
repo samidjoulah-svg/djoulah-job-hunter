@@ -126,6 +126,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [sourcesInfo, setSourcesInfo] = useState(null);
 
   const TAG_QUERIES = {
     "OMS": "global health senior consultant laboratory",
@@ -171,16 +172,18 @@ export default function App() {
   const toggleTag = async (tag) => {
     const nowSelected = !selectedTags.includes(tag);
     setSelectedTags(nowSelected ? [tag] : []);
-    if (!nowSelected) { setSearchResults(null); setSearchError(""); setIsScoring(false); return; }
+    if (!nowSelected) { setSearchResults(null); setSearchError(""); setIsScoring(false); setSourcesInfo(null); return; }
     setIsSearching(true);
     setIsScoring(false);
     setSearchError("");
     setSearchResults(null);
+    setSourcesInfo(null);
     try {
       const query = TAG_QUERIES[tag] || tag;
       const resp = await fetch(`/api/jobs?query=${encodeURIComponent(query)}`);
       const data = await resp.json();
       const jobs = data.jobs?.length > 0 ? data.jobs : [];
+      setSourcesInfo(data.sources || null);
       setSearchResults(jobs);
       setIsSearching(false);
       if (!jobs.length) {
@@ -386,11 +389,23 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
               <div style={{ marginBottom: 12, padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid #4a3a1a", borderRadius: 8, fontSize: 12, color: "#fbbf24" }}>⚠️ {searchError}</div>
             )}
             {!isSearching && (
-              <p style={{ color: "#8892b0", fontSize: 13, marginBottom: 16 }}>
-                {searchResults !== null && searchResults.length > 0
-                  ? `${searchResults.length} offre(s) Indeed trouvée(s)`
-                  : `${displayJobs.length} offre(s)`}
-              </p>
+              <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <p style={{ margin: 0, color: "#8892b0", fontSize: 13 }}>
+                  {searchResults !== null && searchResults.length > 0
+                    ? `${searchResults.length} offre(s) trouvée(s)`
+                    : `${displayJobs.length} offre(s)`}
+                </p>
+                {sourcesInfo && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: typeof sourcesInfo.jsearch === "number" ? "rgba(126,184,247,0.12)" : "rgba(255,107,107,0.1)", border: `1px solid ${typeof sourcesInfo.jsearch === "number" ? "#2a4a7f" : "#7f2a2a"}`, color: typeof sourcesInfo.jsearch === "number" ? "#7eb8f7" : "#ff8888" }}>
+                      JSearch {typeof sourcesInfo.jsearch === "number" ? `✓ ${sourcesInfo.jsearch}` : "✗"}
+                    </span>
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: typeof sourcesInfo.linkedin === "number" ? "rgba(10,102,194,0.15)" : "rgba(255,107,107,0.08)", border: `1px solid ${typeof sourcesInfo.linkedin === "number" ? "#0a66c2" : "#7f2a2a"}`, color: typeof sourcesInfo.linkedin === "number" ? "#60a5fa" : "#ff8888" }}>
+                      LinkedIn {typeof sourcesInfo.linkedin === "number" ? `✓ ${sourcesInfo.linkedin}` : "✗ inactif"}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -422,6 +437,11 @@ Rédige un pitch de candidature percutant en 5 points clés (bullet points), en 
                       </div>
                       <p style={{ margin: "0 0 8px", color: "#7eb8f7", fontSize: 13 }}>
                         {job.org} · {job.location} · <span style={{ color: "#64748b" }}>{job.type}</span>
+                        {job.source && (
+                          <span style={{ marginLeft: 8, fontSize: 10, padding: "1px 6px", borderRadius: 8, background: job.source === "LinkedIn" ? "rgba(10,102,194,0.2)" : "rgba(126,184,247,0.1)", color: job.source === "LinkedIn" ? "#60a5fa" : "#8bafd4", border: `1px solid ${job.source === "LinkedIn" ? "#0a66c266" : "#2a4a7f"}` }}>
+                            {job.source === "LinkedIn" ? "🔵 LinkedIn" : "🟠 JSearch"}
+                          </span>
+                        )}
                       </p>
                       <p style={{ margin: "0 0 10px", color: "#8892b0", fontSize: 13, lineHeight: 1.5 }}>{job.description}</p>
                       {(job.remuneration || job.duration) && (
